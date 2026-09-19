@@ -1,5 +1,9 @@
-# Parked ideas (not built yet)
+# Parked ideas for the beta (not built yet)
 
-- **History page:** everything in one place. A calendar with one square per day (done, skipped, missed, blackout), your total and longest run. It's opened by a swipe or a small icon so the main screen stays clean. The app already saves push-ups per day and logs skips, songs, blackouts and rebirths, so this needs no new data.
-- **Skip dots:** 36 dots for a year, one for each skip you can earn. A lost skip never lights up, and a black dot marks a rebirth. This could live on the history page.
+The beta will live in a `beta/` folder in this repo (sebmilton03.github.io/-1/beta/), so the MVP keeps working while it's built.
+
+- **History page:** a calendar with one square per day (done, skipped, missed, blackout, rebirth dot). It shows each day's number, your total, next skip, longest run and current run, plus the 36 skip dots for the year.
+- **Rest-day forest:** on a rest day the button becomes a window into a relaxing cartoon Amazon forest. Tapping different parts does things; tap the trees and a bird flies off.
+- **Friends:** two phones sync and compare, to keep each other accountable and compete.
+- **Exercise name:** set your own instead of push-ups.
 - **Slide to count:** hold the button and slide left to slowly fill it, or right to drain it.
