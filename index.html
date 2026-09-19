@@ -78,6 +78,10 @@
   #btn.missed { border: 2px solid #E24B4A; }
   #btn.complete { border-color: var(--mint-hi); }
   #btn.rest { border-color: #3C3489; }
+  #btn.rest .fill { background: var(--violet); }
+  #btn.rested { border-color: var(--violet-hi); }
+  #btn.rested #restL { color: #EEEDFE; }
+  #btn.rested #restL small { color: var(--violet-text); }
   #btn.burst::after { content: ''; position: absolute; inset: 0; border-radius: inherit; animation: burst .8s ease-out; pointer-events: none; }
   @keyframes burst { from { box-shadow: inset 0 0 0 0 rgba(255,255,255,.5); } to { box-shadow: inset 0 0 0 40px rgba(255,255,255,0); } }
   .fill { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--p) * 100%); background: var(--mint); }
@@ -97,11 +101,6 @@
   .row { display: flex; gap: 8px; margin-top: 12px; }
   .pill { padding: 8px 18px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted); font-size: 15px; }
   .pill:active { transform: scale(.94); }
-
-  .test { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; padding: 8px 10px; border-radius: 12px; border: 1px solid #BA7517; background: #2a1a05; color: #FAC775; font-size: 13px; }
-  .test span { flex: 1; font-weight: 600; white-space: nowrap; }
-  .test button { padding: 6px 8px; border: 1px solid #854F0B; border-radius: 8px; background: #412402; color: #FAC775; font-size: 13px; }
-  .test button:active { transform: scale(.95); }
 
   /* Full-screen pages (settings, onboarding) and the edit sheet */
   .page { position: fixed; inset: 0; z-index: 10; background: #0f0f10; color: var(--text); overflow-y: auto; }
@@ -131,7 +130,6 @@
   .slot button { width: 40px; height: 40px; border: none; border-radius: 10px; background: #232322; font-size: 20px; }
   .slot button.x { background: none; color: var(--muted); font-size: 18px; }
   .add { width: 100%; height: 44px; margin-top: 8px; border: 1px dashed #444441; border-radius: 12px; background: none; color: var(--muted); font-size: 14px; }
-  .testbtn { width: 100%; height: 48px; margin-top: 40px; border: 1px solid #854F0B; border-radius: 12px; background: #2a1a05; color: #FAC775; font-size: 15px; }
 
   #flash { position: fixed; inset: 0; z-index: 20; background: #fff; opacity: 0; pointer-events: none; }
   #flash.on { animation: flash 1.4s ease-out; }
@@ -140,12 +138,8 @@
 </head>
 <body>
 <main>
-  <div class="test" id="test" hidden>
-    <span id="testDate">Test</span>
-    <button id="tNext">Next day</button><button id="tFill">Fill</button><button id="tReset">Reset</button><button id="tExit">Exit</button>
-  </div>
   <div class="top">
-    <span id="brand">+1</span>
+    <span>+1</span>
     <div class="right">
       <span class="dots" id="dots"></span>
       <button class="icon" id="gear" aria-label="Settings">
@@ -171,7 +165,7 @@
     <div class="lbl" id="doneL"><b id="doneN"></b><small id="doneS">done</small></div>
     <div id="restL" hidden>
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z"/></svg>
-      <b>Rest day</b><small id="restS"></small>
+      <b id="restT">Rest day</b><small id="restS"></small>
     </div>
   </button>
   <div class="row"><button class="pill" id="undo" aria-label="Remove one">−1</button><button class="pill" id="editBtn">Edit</button></div>
@@ -198,7 +192,6 @@
     <button class="add" id="sAdd">Add day</button>
     <p class="hint">Starts tomorrow from today's number. Rest means nothing is due that day.</p>
     <button class="cta" id="sSave">Save rule</button>
-    <button class="testbtn" id="sTest">Test mode</button>
   </div>
 </div>
 
@@ -226,20 +219,14 @@
   const CUTOFF = 4;        // a day ends at 4 AM, so late-night sets count for the day before
   const SONG_DAYS = 10;    // days to make a song after a miss with no skips left
   const BLACKOUT = 100;    // push-ups in one day to be reborn
-  const REAL_KEY = 'plus-one-v1';
-  const TEST_KEY = 'plus-one-test';
-  const MODE_KEY = 'plus-one-mode';
-
-  // Test mode runs on its own copy of the data and can jump ahead in days.
-  let TEST = false;
-  try { TEST = localStorage.getItem(MODE_KEY) === 'test'; } catch {}
-  const KEY = TEST ? TEST_KEY : REAL_KEY;
-  let offset = 0;  // test mode only: days jumped ahead
+  const KEY = 'plus-one-v1';
+  // Test mode was removed; clear anything it left behind.
+  try { localStorage.removeItem('plus-one-mode'); localStorage.removeItem('plus-one-test'); } catch {}
 
   // Days are whole numbers (days since 1970) so they're easy to compare and count.
   const dayOf = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / 864e5;
   function today() {
-    const d = new Date(Date.now() + offset * 864e5 - CUTOFF * 36e5);
+    const d = new Date(Date.now() - CUTOFF * 36e5);
     return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5;
   }
 
@@ -262,11 +249,12 @@
       done: {},    // push-ups per date
       songs: [],   // dates a song was marked made
       rules: [],   // [{ at: date, rule: [1, 2, 'rest', ...] }], each takes effect on `at`
+      rested: [],  // rest days tapped as done
     };
   }
   // The first two versions saved the running totals instead; their targets always equalled the day.
   function migrate(s) {
-    if (s.v === 3) return s;
+    if (s.v === 3) { s.rested ??= []; return s; }
     if (s.used !== undefined) {
       const n = s.settled + 1 - s.start + 1;
       s.skips = s.blackout ? 0 : Math.max(0, 1 + Math.floor(n / 10) - s.used);
@@ -280,7 +268,7 @@
         from: s.settled + 1, start: s.start, num: last, skips: s.skips, lastEarned: s.lastEarned,
         lastDone: { n: lastDone, day: lastDone }, song: s.song, blackout: s.blackout, base: s.base, log: s.log,
       },
-      done: s.done, songs: [], rules: [], offset: s.offset,
+      done: s.done, songs: [], rules: [], rested: [],
     };
   }
   function load() {
@@ -291,7 +279,6 @@
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
   }
   let state = load();
-  if (TEST && state) offset = state.offset || 0;
 
   // Walk every day from the origin to `t`. Finished days are decided: a completed day is
   // remembered for rebirth, a missed one uses a skip, then starts a song timer, then (a second
@@ -367,7 +354,6 @@
   let shown = null;
 
   function render() {
-    $('test').hidden = !TEST;
     $('onboard').hidden = !!state;
     if (!state) return showOnboarding();
 
@@ -378,7 +364,6 @@
     const n = Math.min(state.done[t] || 0, tgt);
     const dark = day.kind === 'blackout';
     document.body.classList.toggle('blackout', dark);
-    if (TEST) $('testDate').textContent = 'Test · ' + new Date(t * 864e5).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
     const skips = dark ? 0 : s.skips;
     $('dots').innerHTML = 'skips ' + (skips
@@ -410,10 +395,12 @@
     }
 
     const rest = day.kind === 'rest';
+    const rested = rest && state.rested.includes(t);
     const complete = !rest && n >= tgt;
-    $('btn').style.setProperty('--p', rest ? 0 : n / tgt);
+    $('btn').style.setProperty('--p', rest ? +rested : n / tgt);
     $('btn').classList.toggle('complete', complete);
     $('btn').classList.toggle('rest', rest);
+    $('btn').classList.toggle('rested', rested);
     $('btn').classList.toggle('missed', usedSkip || song);
     $('restL').hidden = !rest;
     $('leftL').hidden = rest || complete;
@@ -422,6 +409,7 @@
     $('doneN').textContent = n;
     $('doneS').innerHTML = complete ? 'done ' + CHECK : 'done';
     if (rest) {
+      $('restT').textContent = rested ? 'Rested' : 'Rest day';
       const next = replay(t + 1).today;
       $('restS').textContent = next.kind === 'work' ? next.target + ' tomorrow' : '';
     }
@@ -432,7 +420,17 @@
 
   $('btn').onclick = e => {
     const t = today(), day = replay(t).today, tgt = target(day), n = state.done[t] || 0;
-    if (day.kind === 'rest' || n >= tgt) { buzz(20); render(); return; }
+    // A rest day fills all at once with one tap.
+    if (day.kind === 'rest') {
+      if (state.rested.includes(t)) { buzz(20); return; }
+      state.rested.push(t);
+      save();
+      render();
+      buzz([30, 60, 30]);
+      pulse($('btn'), 'burst');
+      return;
+    }
+    if (n >= tgt) { buzz(20); render(); return; }
     state.done[t] = n + 1;
     save();
     render();
@@ -458,6 +456,13 @@
   // Take one off today. Dropping below 100 on a rebirth day takes the rebirth back.
   $('undo').onclick = () => {
     const t = today(), n = state.done[t] || 0;
+    if (state.rested.includes(t)) {
+      state.rested = state.rested.filter(d => d !== t);
+      save();
+      render();
+      buzz(8);
+      return;
+    }
     if (!n) { buzz(20); return; }
     if (n === 1) delete state.done[t]; else state.done[t] = n - 1;
     save();
@@ -529,7 +534,6 @@
   $('gear').onclick = () => {
     draft = ruleFor(today() + 1).slice();
     showSlots();
-    $('sTest').textContent = TEST ? 'Exit test mode' : 'Test mode';
     $('settings').hidden = false;
   };
   $('sClose').onclick = () => { $('settings').hidden = true; };
@@ -541,39 +545,6 @@
     $('settings').hidden = true;
     render();
   };
-  $('sTest').onclick = () => TEST ? exitTest() : enterTest();
-
-  // Test mode copies your real data, so practice runs never touch it.
-  function enterTest() {
-    try {
-      const real = localStorage.getItem(REAL_KEY);
-      if (real) localStorage.setItem(TEST_KEY, real); else localStorage.removeItem(TEST_KEY);
-      localStorage.setItem(MODE_KEY, 'test');
-    } catch {}
-    location.reload();
-  }
-  function exitTest() {
-    try { localStorage.removeItem(MODE_KEY); localStorage.removeItem(TEST_KEY); } catch {}
-    location.reload();
-  }
-  let holdTimer = null;
-  const endHold = () => clearTimeout(holdTimer);
-  $('brand').onpointerdown = () => {
-    if (TEST) return;
-    holdTimer = setTimeout(() => { if (confirm('Open test mode? It uses a copy, so your real count stays safe.')) enterTest(); }, 1000);
-  };
-  $('brand').onpointerup = $('brand').onpointerleave = $('brand').onpointercancel = endHold;
-
-  $('tNext').onclick = () => { if (!state) return; state.offset = ++offset; save(); render(); };
-  $('tFill').onclick = () => {
-    if (!state) return;
-    const t = today(), tgt = target(replay(t).today);
-    if (tgt) state.done[t] = tgt;
-    save();
-    render();
-  };
-  $('tReset').onclick = () => { if (confirm('Start the test over from your real data?')) enterTest(); };
-  $('tExit').onclick = exitTest;
 
   // First open: ask what day you're on and how many skips you have.
   function showOnboarding() {
